@@ -51,16 +51,6 @@ function App() {
 
 
   useEffect (()=> {
-  //        new Promise((resolve, reject) => {
-  //        setTimeout(() => {
-  //          resolve ({  data:{  todoList:JSON.parse(localStorage.getItem('savedTodoList') ) || []    }});
-  //         }, 2000); 
-  //        }
-  //    )
-  //    .then((result)=>{
-  //      setTodoList (result.data.todoList);
-  //      setIsloading (false);
-  //    });
      fetchData();
     
   }, []);
@@ -69,22 +59,72 @@ function App() {
     if (!isLoading) {
      localStorage.setItem('savedTodoList',JSON.stringify(todoList));
     }
-  }, [todoList,isLoading]);
-
-
-
-
- //const [todoList,setTodoList]=useSemiPersintentState();
+  }, [todoList,isLoading]); 
  
- 
- function addTodo (newTodo){
-   setTodoList([...todoList,newTodo]);
+ async function addTodo (newTodo){
+   const options ={
+     method: "POST",
+     HEADERS: {
+       "Content-type": "application/json",
+       Authorization:  `Bearer ${import.meta.env.VITE_AIRTABLE_API_TOKEN}`,
+     },
+     body: JSON.stringify({
+        records: [
+          {
+            fields: {
+              Title: newTodo.title, 
+            },
+          },
+        ],
+      }),
+   }
+   const url = `https://api.airtable.com/v0/${import.meta.env.VITE_AIRTABLE_BASE_ID}/${import.meta.env.VITE_TABLE_NAME}`;
+
+    try {
+      const response = await fetch(url, options);
+
+      if (!response.ok) {
+        const message = `Error occurred while saving todo: ${response.status}`;
+        throw new Error(message);
+      }
+
+      const data = await response.json();
+      const savedTodo = {
+        id: data.records[0].id, // Airtable's record ID
+        title: data.records[0].fields.Title, // Airtable's "Title" field
+      };
+
+      setTodoList((prevList) => [savedTodo, ...prevList]);
+    } catch (error) {
+      console.error("Failed to add todo:", error.message);
+    }
  }
+   
 
- function removeTodo(id){
-  const newTodoList = todoList.filter(item => item.id !== id); 
-  setTodoList(newTodoList); 
-}
+ async function removeTodo(id) {
+    const options = {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${import.meta.env.VITE_AIRTABLE_API_TOKEN}`,
+      },
+    };
+
+    const url = `https://api.airtable.com/v0/${import.meta.env.VITE_AIRTABLE_BASE_ID}/${import.meta.env.VITE_TABLE_NAME}/${id}`;
+
+    try {
+      const response = await fetch(url, options);
+
+      if (!response.ok) {
+        const message = `Error occurred while deleting todo: ${response.status}`;
+        throw new Error(message);
+      }
+
+      // Update the local state
+      setTodoList((prevList) => prevList.filter((todo) => todo.id !== id));
+    } catch (error) {
+      console.error("Failed to delete todo:", error.message);
+    }
+  }
 
   return (
     <Fragment>
